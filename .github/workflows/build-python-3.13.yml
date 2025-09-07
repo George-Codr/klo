@@ -1,98 +1,224 @@
-name: Build Python 3.13.7 (macOS aarch64 with clang)
+name: Build Android
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-    paths:
-      - "build.sh"
+      - '3.*'
+  pull_request:
+    branches:
+      - main
+      - '3.*'
 
 jobs:
-  build-macos-aarch64:
-    runs-on: macos-14  # Apple Silicon (aarch64)
-
+  build-android-313:
+    name: Android (aarch64) Python 3.13
+    runs-on: macos-14
+    timeout-minutes: 90
     env:
       CC: clang
       CXX: clang++
       LD: clang
       AR: llvm-ar
-      RANLIB: llvm-ranlib
       NM: llvm-nm
-      OBJDUMP: llvm-objdump
-      STRIP: llvm-strip
-      CFLAGS: "-O3 -fPIC"
-      LDFLAGS: "-fuse-ld=lld"
-
+      RANLIB: llvm-ranlib
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-      - name: Install Homebrew packages & casks (skip missing)
+      - name: Install dependencies & clone CPython
         run: |
-          set -e
-          PACKAGES=(
-            itk-snap
-            lightkey
-            rotki
-            script-kit
-            showmeyourhotkeys
-            silentknight
-            agentkube
-          )
-
-          for pkg in "${PACKAGES[@]}"; do
-            echo "🔍 Checking $pkg..."
-            if brew search "$pkg" | grep -q "$pkg"; then
-              if brew info --cask "$pkg" >/dev/null 2>&1; then
-                echo "📦 Installing cask $pkg"
-                brew install --cask "$pkg" || true
-              else
-                echo "📦 Installing formula $pkg"
-                brew install "$pkg" || true
-              fi
-            else
-              echo "⚠️ $pkg not found in Homebrew, skipping..."
-            fi
-          done
-      - name: Install dependencies
-        run: |
-          brew update
-          brew install \
-            pkg-config gdbm xz zlib bzip2 sqlite \
-            openssl readline libffi ncurses tk llvm
-
-      - name: Fetch Termux patches & subpackages
-        run: |
-          mkdir -p patches
-          mkdir -p subpackages
-          base_url="https://raw.githubusercontent.com/termux/termux-packages/master/packages/python"
-
-          # Download patches
-          for i in $(seq -w 0001 0010); do
-            url=$(curl -sSL https://api.github.com/repos/termux/termux-packages/contents/packages/python | grep -o "\"${i}-[^\"]*\.patch\"" | head -n1 | tr -d '"')
-            if [ -n "$url" ]; then
-              curl -sSL "$base_url/$url" -o "patches/$url"
-            fi
-          done
-
-          # Download subpackage scripts
-          curl -sSL "$base_url/python-ensurepip-wheels.subpackage.sh" -o subpackages/python-ensurepip-wheels.subpackage.sh
-          curl -sSL "$base_url/python-tkinter.subpackage.sh" -o subpackages/python-tkinter.subpackage.sh
+          brew install readline llvm lld dpkg mpdecimal
+          brew uninstall gcc || true
+          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          git clone --branch 3.13 --depth 1 https://github.com/python/cpython.git cpython-3.13
+          ls cpython-3.13
 
       - name: Apply patches
+        working-directory: ./cpython-3.13
         run: |
-          for p in patches/*.patch; do
-            [ -f "$p" ] && patch -p1 < "$p" || true
-          done
+          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          curl -L https://raw.githubusercontent.com/yubrajbhoi/termux-python/refs/heads/main/termux.patch -o termux.patch
+          git apply termux.patch
+          curl -L https://raw.githubusercontent.com/plfj/py-build/refs/heads/main/as13.patch -o as13.patch
+          git apply ./as13.patch
 
-      - name: Run build.sh (force clang, aarch64)
+      - name: Build CPython for Android
+        working-directory: ./cpython-3.13/Android
         run: |
-          chmod +x ./build.sh
-          ./build.sh ci aarch64-linux-android
+          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          ./android.py ci aarch64-linux-android
+          /Users/runner/work/py-build/py-build/cpython-3.13/cross-build/aarch64-linux-android/prefix/bin/python3.13 -c "print(import('sys').version)" || echo 'Python not found'
 
-      - name: Upload artifacts
+      - name: Package as .deb
+        run: |
+          PKG_NAME=pyv313
+          PKG_VERSION=3.13
+          ARCH=aarch64
+          BUILD_DIR=./cpython-3.13/cross-build/aarch64-linux-android
+          OUT_DIR=$( [ -d "$BUILD_DIR/prefix" ] && echo "$BUILD_DIR/prefix" || echo "$BUILD_DIR/install" )
+          DEB_DIR=$PKG_NAME
+
+          mkdir -p $DEB_DIR/DEBIAN
+          mkdir -p $DEB_DIR/usr
+          cp -r $OUT_DIR/* $DEB_DIR/usr/
+
+          cat > $DEB_DIR/DEBIAN/control <<EOF
+          Package: $PKG_NAME
+          Version: $PKG_VERSION
+          Architecture: $ARCH
+          Maintainer: Cross-compiled by NotFound
+          Description: Python $PKG_VERSION cross-compiled for Termux aarch64
+          EOF
+
+          cat > $DEB_DIR/DEBIAN/postinst <<EOF
+          #!/bin/sh
+          set -e
+          echo "$PKG_NAME installed successfully!"
+          exit 0
+          EOF
+          chmod 755 $DEB_DIR/DEBIAN/postinst
+
+          dpkg-deb --build $DEB_DIR ${PKG_NAME}_${PKG_VERSION}_${ARCH}.deb
+
+      - name: Upload Debian package
         uses: actions/upload-artifact@v4
         with:
-          name: python-3.13.7-aarch64-clang
-          path: output/**
-          
+          name: pyv313
+          path: pyv313_3.13_aarch64.deb
+          if-no-files-found: error
+
+  build-android-314:
+    name: Android (aarch64) Python 3.14
+    runs-on: macos-14
+    timeout-minutes: 90
+    env:
+      CC: clang
+      CXX: clang++
+      LD: clang
+      AR: llvm-ar
+      NM: llvm-nm
+      RANLIB: llvm-ranlib
+    steps:
+      - name: Install dependencies & clone CPython
+        run: |
+          brew install readline llvm lld dpkg mpdecimal
+          brew uninstall gcc || true
+          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          git clone --branch 3.14 --depth 1 https://github.com/python/cpython.git cpython-3.14
+          ls cpython-3.14
+
+      - name: Apply patch
+        working-directory: ./cpython-3.14
+        run: |
+          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          curl -L https://raw.githubusercontent.com/plfj/py-build/refs/heads/main/as14.patch -o as14.patch
+          git apply ./as14.patch
+
+      - name: Build CPython for Android
+        working-directory: ./cpython-3.14/Android
+        run: |
+          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          ./android.py ci aarch64-linux-android
+          /Users/runner/work/py-build/py-build/cpython-3.14/cross-build/aarch64-linux-android/prefix/bin/python3.14 -c "print(import('sys').version)" || echo 'Python not found'
+
+      - name: Package as .deb
+        run: |
+          PKG_NAME=pyv314
+          PKG_VERSION=3.14
+          ARCH=aarch64
+          BUILD_DIR=./cpython-3.14/cross-build/aarch64-linux-android
+          OUT_DIR=$( [ -d "$BUILD_DIR/prefix" ] && echo "$BUILD_DIR/prefix" || echo "$BUILD_DIR/install" )
+          DEB_DIR=$PKG_NAME
+
+          mkdir -p $DEB_DIR/DEBIAN
+          mkdir -p $DEB_DIR/usr
+          cp -r $OUT_DIR/* $DEB_DIR/usr/
+
+          cat > $DEB_DIR/DEBIAN/control <<EOF
+          Package: $PKG_NAME
+          Version: $PKG_VERSION
+          Architecture: $ARCH
+          Maintainer: Cross-compiled by NotFound
+          Description: Python $PKG_VERSION cross-compiled for Termux aarch64
+          EOF
+
+          cat > $DEB_DIR/DEBIAN/postinst <<EOF
+          #!/bin/sh
+          set -e
+          echo "$PKG_NAME installed successfully!"
+          exit 0
+          EOF
+          chmod 755 $DEB_DIR/DEBIAN/postinst
+
+          dpkg-deb --build $DEB_DIR ${PKG_NAME}_${PKG_VERSION}_${ARCH}.deb
+
+      - name: Upload Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyv314
+          path: pyv314_3.14_aarch64.deb
+          if-no-files-found: error
+
+  build-android-315:
+    name: Android (aarch64) Python 3.15
+    runs-on: macos-14
+    timeout-minutes: 90
+    env:
+      CC: clang
+      CXX: clang++
+      LD: clang
+      AR: llvm-ar
+      NM: llvm-nm
+      RANLIB: llvm-ranlib
+    steps:
+      - name: Install dependencies & clone CPython
+        run: |
+          brew install readline llvm lld dpkg mpdecimal
+          brew uninstall gcc || true
+          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          git clone --branch main --depth 1 https://github.com/python/cpython.git cpython-3.15
+          ls cpython-3.15
+
+      - name: Build CPython for Android
+        working-directory: ./cpython-3.15/Android
+        run: |
+          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          ./android.py ci aarch64-linux-android
+          /Users/runner/work/py-build/py-build/cpython-3.15/cross-build/aarch64-linux-android/prefix/bin/python3.15 -c "print(import('sys').version)" || echo 'Python not found'
+
+      - name: Package as .deb
+        run: |
+          PKG_NAME=pyv315
+          PKG_VERSION=3.15
+          ARCH=aarch64
+          BUILD_DIR=./cpython-3.15/cross-build/aarch64-linux-android
+          OUT_DIR=$( [ -d "$BUILD_DIR/prefix" ] && echo "$BUILD_DIR/prefix" || echo "$BUILD_DIR/install" )
+          DEB_DIR=$PKG_NAME
+
+          mkdir -p $DEB_DIR/DEBIAN
+          mkdir -p $DEB_DIR/usr
+          cp -r $OUT_DIR/* $DEB_DIR/usr/
+
+          cat > $DEB_DIR/DEBIAN/control <<EOF
+          Package: $PKG_NAME
+          Version: $PKG_VERSION
+          Architecture: $ARCH
+          Maintainer: Cross-compiled by NotFound
+          Description: Python $PKG_VERSION cross-compiled for Termux aarch64
+          EOF
+
+          cat > $DEB_DIR/DEBIAN/postinst <<EOF
+          #!/bin/sh
+          set -e
+          echo "$PKG_NAME installed successfully!"
+          exit 0
+          EOF
+          chmod 755 $DEB_DIR/DEBIAN/postinst
+
+          dpkg-deb --build $DEB_DIR ${PKG_NAME}_${PKG_VERSION}_${ARCH}.deb
+
+      - name: Upload Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyv315
+          path: pyv315_3.15_aarch64.deb
+          if-no-files-found: error
