@@ -68,18 +68,6 @@ jobs:
             echo "No patches found."
           fi
           
-      - name: Apply patches
-        working-directory: ./cpython-3.13
-        run: |
-          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
-          # allow errors so the script continues
-          set +e
-          curl -L https://raw.githubusercontent.com/yubrajbhoi/termux-python/refs/heads/main/termux.patch -o termux.patch
-          git apply termux.patch || true
-          curl -L https://raw.githubusercontent.com/plfj/py-build/refs/heads/main/as13.patch -o as13.patch
-          git apply ./as13.patch || true
-          set -e
-          git apply ./as13.patch
 
       - name: Build CPython for Android
         working-directory: ./cpython-3.13/Android
@@ -101,7 +89,7 @@ jobs:
           mkdir -p $DEB_DIR/usr
           cp -r $OUT_DIR/* $DEB_DIR/usr/
 
-          cat > $DEB_DIR/DEBIAN/control <<EOF
+          ca > $DEB_DIR/DEBIAN/control <<EOF
           Package: $PKG_NAME
           Version: $PKG_VERSION
           Architecture: $ARCH
