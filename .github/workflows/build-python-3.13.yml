@@ -1,4 +1,4 @@
-name: Build Python 3.13.7 (Standalone Repo)
+name: Build Python 3.13.7 (macOS aarch64 with clang)
 
 on:
   workflow_dispatch:
@@ -10,11 +10,20 @@ on:
       - ".github/workflows/build-python-3.13.yml"
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [aarch64, arm, i686, x86_64]
+  build-macos-aarch64:
+    runs-on: macos-14  # Apple Silicon (aarch64)
+
+    env:
+      CC: clang
+      CXX: clang++
+      LD: clang
+      AR: llvm-ar
+      RANLIB: llvm-ranlib
+      NM: llvm-nm
+      OBJDUMP: llvm-objdump
+      STRIP: llvm-strip
+      CFLAGS: "-O3 -fPIC"
+      LDFLAGS: "-fuse-ld=lld"
 
     steps:
       - name: Checkout repo
@@ -22,10 +31,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            git curl build-essential python3 \
-            unzip zip xz-utils patch
+          brew update
+          brew install \
+            pkg-config gdbm xz zlib bzip2 sqlite \
+            openssl readline libffi ncurses tk llvm
 
       - name: Fetch Termux patches & subpackages
         run: |
@@ -45,25 +54,20 @@ jobs:
           curl -sSL "$base_url/python-ensurepip-wheels.subpackage.sh" -o subpackages/python-ensurepip-wheels.subpackage.sh
           curl -sSL "$base_url/python-tkinter.subpackage.sh" -o subpackages/python-tkinter.subpackage.sh
 
-      - name: Pull Termux Docker
-        run: docker pull ghcr.io/termux/termux-docker:latest
-
-      - name: Apply patches & build (${{ matrix.arch }})
+      - name: Apply patches
         run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/src \
-            -w /src \
-            ghcr.io/termux/termux-docker:latest \
-            bash -c "
-              set -e
-              for p in patches/*.patch; do
-                [ -f \"\$p\" ] && patch -p1 < \"\$p\" || true
-              done
-              ./build.sh ${{ matrix.arch }}
-            "
+          for p in patches/*.patch; do
+            [ -f "$p" ] && patch -p1 < "$p" || true
+          done
+
+      - name: Run build.sh (force clang, aarch64)
+        run: |
+          chmod +x ./build.sh
+          ./build.sh ci aarch64-linux-android
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: python-3.13.7-${{ matrix.arch }}
-          path: output/**/*.deb
+          name: python-3.13.7-aarch64-clang
+          path: output/**
+          
