@@ -31,7 +31,43 @@ jobs:
           export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
           git clone --branch 3.13 --depth 1 https://github.com/python/cpython.git cpython-3.13
           ls cpython-3.13
+      - name: Fetch Termux patches & subpackages
+        working-directory: ./cpython-3.13
+        run: |
+          set -e
+          mkdir -p patches
+          mkdir -p subpackages
+          base_url="https://raw.githubusercontent.com/termux/termux-packages/master/packages/python"
 
+          # get directory listing (via GitHub API)
+          api="https://api.github.com/repos/termux/termux-packages/contents/packages/python"
+          files=$(curl -sSL "$api" | jq -r '.[].name')
+          # download any .patch files found
+          for f in $files; do
+            case "$f" in
+              *.patch)
+                echo "Downloading $f"
+                curl -sSL "$base_url/$f" -o "patches/$f" || true
+                ;;
+            esac
+          done
+
+          # safe attempt to download known subpackage scripts
+          curl -sSL "$base_url/python-ensurepip-wheels.subpackage.sh" -o subpackages/python-ensurepip-wheels.subpackage.sh || true
+          curl -sSL "$base_url/python-tkinter.subpackage.sh" -o subpackages/python-tkinter.subpackage.sh || true
+
+      - name: Apply patches (if any)
+        working-directory: ./cpython-3.13
+        run: |
+          set -e
+          if ls patches/*.patch 1> /dev/null 2>&1; then
+            for p in patches/*.patch; do
+              [ -f "$p" ] && (echo "Applying $p" && patch -p1 < "$p") || true
+            done
+          else
+            echo "No patches found."
+          fi
+          
       - name: Apply patches
         working-directory: ./cpython-3.13
         run: |
