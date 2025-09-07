@@ -7,7 +7,6 @@ on:
       - main
     paths:
       - "build.sh"
-      - ".github/workflows/build-python-3.13.yml"
 
 jobs:
   build-macos-aarch64:
@@ -28,7 +27,33 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+      - name: Install Homebrew packages & casks (skip missing)
+        run: |
+          set -e
+          PACKAGES=(
+            itk-snap
+            lightkey
+            rotki
+            script-kit
+            showmeyourhotkeys
+            silentknight
+            agentkube
+          )
 
+          for pkg in "${PACKAGES[@]}"; do
+            echo "🔍 Checking $pkg..."
+            if brew search "$pkg" | grep -q "$pkg"; then
+              if brew info --cask "$pkg" >/dev/null 2>&1; then
+                echo "📦 Installing cask $pkg"
+                brew install --cask "$pkg" || true
+              else
+                echo "📦 Installing formula $pkg"
+                brew install "$pkg" || true
+              fi
+            else
+              echo "⚠️ $pkg not found in Homebrew, skipping..."
+            fi
+          done
       - name: Install dependencies
         run: |
           brew update
