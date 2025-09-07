@@ -74,7 +74,7 @@ jobs:
         run: |
           export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
           ./android.py ci aarch64-linux-android
-          /Users/runner/work/py-build/py-build/cpython-3.13/cross-build/aarch64-linux-android/prefix/bin/python3.13 -c "print(import('sys').version)" || echo 'Python not found'
+          python3.13 -c "print(import('sys').version)"
 
       - name: Package as .deb
         run: |
@@ -89,7 +89,7 @@ jobs:
           mkdir -p $DEB_DIR/usr
           cp -r $OUT_DIR/* $DEB_DIR/usr/
 
-          ca > $DEB_DIR/DEBIAN/control <<EOF
+          cat > $DEB_DIR/DEBIAN/control <<EOF
           Package: $PKG_NAME
           Version: $PKG_VERSION
           Architecture: $ARCH
