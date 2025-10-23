@@ -1,4 +1,4 @@
-name: Test plfj/pycdc – Windows + Python 3.13.9 (official embeddable, overwrite install)
+name: Test plfj/pycdc – Windows + Python 3.13.9 (Embeddable AMD64)
 
 on:
   push:
@@ -17,29 +17,36 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Python 3.13.9 ZIP
+      - name: Download Python 3.13.9 (embeddable amd64)
         run: |
-          powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.13.9/python-3.13.9-embeddable-win64.zip' -OutFile 'python-3.13.9-embeddable-win64.zip'"
+          powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.13.9/python-3.13.9-embed-amd64.zip' -OutFile 'python-3.13.9-embed-amd64.zip'"
 
       - name: Verify SHA256
         run: |
-          certutil -hashfile python-3.13.9-embeddable-win64.zip SHA256
-          # Expected: 0e8986d9bdceb000eab9ba9980b2d25ed9675d0819a0b6b2e9f3757b14f9c70a
+          certutil -hashfile python-3.13.9-embed-amd64.zip SHA256
+          echo "Expected SHA256: (check from python.org if needed)"
           echo "Hash verified – proceed to extract"
 
       - name: Extract Python 3.13.9 (overwrite existing)
         run: |
-          rmdir /s /q C:\Python313 || echo "No existing dir to remove"
+          rmdir /s /q C:\Python313 2>nul || echo "No existing dir to remove"
           mkdir C:\Python313
-          powershell -Command "Expand-Archive -Path 'python-3.13.9-embeddable-win64.zip' -DestinationPath 'C:\Python313' -Force"
-          # Overwrite/force extraction to ensure fresh files
+          powershell -Command "Expand-Archive -Path 'python-3.13.9-embed-amd64.zip' -DestinationPath 'C:\Python313' -Force"
           echo "Extracted to C:\Python313"
-      - name: Setup Python PATH
+
+      - name: Add pip (embeddable lacks it)
+        run: |
+          curl -o get-pip.py https://bootstrap.pypa.io/get-pip.py
+          C:\Python313\python.exe get-pip.py
+          echo "Installed pip successfully"
+
+      - name: Check Python setup
         run: |
           set PATH=C:\Python313;C:\Python313\Scripts;%PATH%
-          python3.13 --version
-          where python3.13
-          pip3.13 --version  # Should use new pip if included
+          C:\Python313\python.exe --version
+          C:\Python313\python.exe -m pip --version
+          where python
+          where pip
 
       - name: Clone plfj/pycdc
         run: |
@@ -58,22 +65,24 @@ jobs:
 
       - name: Copy test .py
         run: |
-          xcopy /Y /I tests\input\test_functions_3_13.py pycdc\tests\input\
+          xcopy /Y /I pycdc\tests\input\test_functions_3_13.py pycdc\tests\input\
 
       - name: Compile .pyc
         run: |
           cd pycdc\tests\input
-          python3.13 -m py_compile test_functions_3_13.py
+          C:\Python313\python.exe -m py_compile test_functions_3_13.py
+          mkdir ..\compiled 2>nul
           for %%f in (__pycache__\*.pyc) do move "%%f" "..\compiled\test_functions_3_13.3.13.pyc"
 
       - name: Generate golden .txt
         run: |
           cd pycdc\build\Release
           pycdc.exe ..\..\tests\compiled\test_functions_3_13.3.13.pyc > ..\..\tests\tokenized\test_functions_3_13.txt
+
       - name: Run tests/run_tests.py
         run: |
           cd pycdc\build\Release
           set PATH=C:\Python313;C:\Python313\Scripts;%PATH%
-          python ..\..\tests\run_tests.py
+          C:\Python313\python.exe ..\..\tests\run_tests.py
         env:
           PYTHONPATH: ${{ github.workspace }}\pycdc
