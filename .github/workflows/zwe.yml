@@ -1,4 +1,4 @@
-name: Test plfj/pycdc – Windows + Python 3.13 (auto-generate .pyc & .txt)
+name: Test plfj/pycdc – Windows + Python 3.13 (minimal test)
 
 on:
   push:
@@ -14,32 +14,20 @@ jobs:
         shell: cmd
 
     steps:
-      # -------------------------------------------------
-      # 1. Checkout your repo (contains only test_functions_3_13.py)
-      # -------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -------------------------------------------------
-      # 2. Install Python 3.13
-      # -------------------------------------------------
       - name: Install Python 3.13
         run: |
           choco install python --version=3.13.0 -y --force
           python --version
 
-      # -------------------------------------------------
-      # 3. Clone plfj/pycdc (your fork with PR #581)
-      # -------------------------------------------------
       - name: Clone plfj/pycdc
         run: |
           git clone https://github.com/plfj/pycdc.git
           cd pycdc
           git log -1
 
-      # -------------------------------------------------
-      # 4. Build pycdc with CMake + MSVC
-      # -------------------------------------------------
       - name: Build pycdc
         run: |
           cd pycdc
@@ -49,38 +37,22 @@ jobs:
                    -DPython3_EXECUTABLE="C:\Program Files\Python313\python.exe"
           cmake --build . --config Release --parallel
 
-      # -------------------------------------------------
-      # 5. Copy .py into plfj/pycdc/tests/input/
-      # -------------------------------------------------
-      - name: Copy test .py file
+      - name: Copy test .py
         run: |
           xcopy /Y /I tests\input\test_functions_3_13.py pycdc\tests\input\
 
-      # -------------------------------------------------
-      # 6. Compile .py → .pyc using Python 3.13
-      # -------------------------------------------------
       - name: Compile .pyc
         run: |
           cd pycdc\tests\input
           python -m py_compile test_functions_3_13.py
           for %%f in (__pycache__\*.pyc) do move "%%f" "..\compiled\test_functions_3_13.3.13.pyc"
-          echo Compiled .pyc:
-          dir ..\compiled\test_functions_3_13.3.13.pyc
 
-      # -------------------------------------------------
-      # 7. Generate golden .txt using built pycdc.exe
-      # -------------------------------------------------
       - name: Generate golden .txt
         run: |
           cd pycdc\build\Release
           pycdc.exe ..\..\tests\compiled\test_functions_3_13.3.13.pyc > ..\..\tests\tokenized\test_functions_3_13.txt
-          echo Generated golden .txt:
-          dir ..\..\tests\tokenized\test_functions_3_13.txt
 
-      # -------------------------------------------------
-      # 8. Run test suite from folder containing pycdc.exe
-      # -------------------------------------------------
-      - name: Run tests/run_tests.py
+      - name: Run tests (from folder containing pycdc.exe)
         run: |
           cd pycdc\build\Release
           python ..\..\tests\run_tests.py
