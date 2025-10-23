@@ -76,8 +76,8 @@ jobs:
 
       - name: Generate golden .txt
         run: |
-          cd pycdc\build\Release
-          pycdc.exe ..\..\tests\compiled\test_functions_3_13.3.13.pyc > ..\..\tests\tokenized\test_functions_3_13.txt
+          cd pycdc\tests
+          python tokeizer.py input\test_functions_3_13.py
 
       - name: Run tests/run_tests.py
         run: |
