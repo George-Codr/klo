@@ -65,7 +65,7 @@ jobs:
 
       - name: Copy test .py
         run: |
-          xcopy /Y /I pycdc\tests\input\test_functions_3_13.py pycdc\tests\input\
+          xcopy /Y /I tests\input\test_functions_3_13.py pycdc\tests\input\
 
       - name: Compile .pyc
         run: |
