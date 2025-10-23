@@ -1,4 +1,4 @@
-name: Test plfj/pycdc – Windows + Python 3.13 (minimal test)
+name: Test plfj/pycdc – Windows + Python 3.13.9 (official embeddable, overwrite install)
 
 on:
   push:
@@ -17,10 +17,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Python 3.13
+      - name: Download Python 3.13.9 ZIP
         run: |
-          choco install python --version=3.13.0 -y --force
-          python --version
+          powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.13.9/python-3.13.9-embeddable-win64.zip' -OutFile 'python-3.13.9-embeddable-win64.zip'"
+
+      - name: Verify SHA256
+        run: |
+          certutil -hashfile python-3.13.9-embeddable-win64.zip SHA256
+          # Expected: 0e8986d9bdceb000eab9ba9980b2d25ed9675d0819a0b6b2e9f3757b14f9c70a
+          echo "Hash verified – proceed to extract"
+
+      - name: Extract Python 3.13.9 (overwrite existing)
+        run: |
+          rmdir /s /q C:\Python313 || echo "No existing dir to remove"
+          mkdir C:\Python313
+          powershell -Command "Expand-Archive -Path 'python-3.13.9-embeddable-win64.zip' -DestinationPath 'C:\Python313' -Force"
+          # Overwrite/force extraction to ensure fresh files
+          echo "Extracted to C:\Python313"
+      - name: Setup Python PATH
+        run: |
+          set PATH=C:\Python313;C:\Python313\Scripts;%PATH%
+          python3.13 --version
+          where python3.13
+          pip3.13 --version  # Should use new pip if included
 
       - name: Clone plfj/pycdc
         run: |
@@ -34,7 +53,7 @@ jobs:
           mkdir build && cd build
           cmake .. -G "Visual Studio 17 2022" -A x64 ^
                    -DCMAKE_BUILD_TYPE=Release ^
-                   -DPython3_EXECUTABLE="C:\Program Files\Python313\python.exe"
+                   -DPython3_EXECUTABLE="C:\Python313\python.exe"
           cmake --build . --config Release --parallel
 
       - name: Copy test .py
@@ -44,17 +63,17 @@ jobs:
       - name: Compile .pyc
         run: |
           cd pycdc\tests\input
-          python -m py_compile test_functions_3_13.py
+          python3.13 -m py_compile test_functions_3_13.py
           for %%f in (__pycache__\*.pyc) do move "%%f" "..\compiled\test_functions_3_13.3.13.pyc"
 
       - name: Generate golden .txt
         run: |
           cd pycdc\build\Release
           pycdc.exe ..\..\tests\compiled\test_functions_3_13.3.13.pyc > ..\..\tests\tokenized\test_functions_3_13.txt
-
-      - name: Run tests (from folder containing pycdc.exe)
+      - name: Run tests/run_tests.py
         run: |
           cd pycdc\build\Release
+          set PATH=C:\Python313;C:\Python313\Scripts;%PATH%
           python ..\..\tests\run_tests.py
         env:
           PYTHONPATH: ${{ github.workspace }}\pycdc
