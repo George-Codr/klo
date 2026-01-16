@@ -51,6 +51,7 @@ jobs:
           done
           brew uninstall gcc || true
           echo "✅ macOS build dependencies installed."
+          rsync --version
       - name: Set up Android SDK + NDK
         uses: android-actions/setup-android@v3
 
@@ -136,6 +137,17 @@ jobs:
           echo "CPPFLAGS=-I$TERMUX_DEPS/include " >> $GITHUB_ENV
           echo "LDFLAGS=-L$TERMUX_DEPS/lib " >> $GITHUB_ENV
           echo "PKG_CONFIG_PATH=$TERMUX_DEPS/lib/pkgconfig " >> $GITHUB_ENV
+          export PREFIX="/Users/runner/work/klo/klo/cpython-3.13.11/cross-build/aarch64-linux-android/prefix"
+          export TERMUX="/Users/runner/work/klo/klo/termux-deps/extracted/usr"
+          mkdir -p "$PREFIX/include"
+          mkdir -p "$PREFIX/lib"
+          mkdir -p "$PREFIX/lib/pkgconfig"
+          rsync -a "$TERMUX/include/" "$PREFIX/include/"
+          rsync -a "$TERMUX/lib/" "$PREFIX/lib/" \
+            --exclude="libpython*" \
+            --exclude="libmimalloc*"
+          rsync -a "$TERMUX/lib/pkgconfig/" "$PREFIX/lib/pkgconfig/"
+
       - name: Download official Python source tarball (from Secret)
         run: |
           set -euxo pipefail
