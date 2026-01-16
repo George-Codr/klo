@@ -126,16 +126,16 @@ jobs:
           ls -R extracted/usr | head -n 50
       - name: Configure Termux dependency paths
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           TERMUX_DEPS="$GITHUB_WORKSPACE/termux-deps/extracted/usr"
           mkdir -p $GITHUB_WORKSPACE/termux-deps/extracted/usr
           mkdir -p $GITHUB_WORKSPACE/termux-deps/extracted/usr/lib
           mkdir -p $GITHUB_WORKSPACE/termux-deps/extracted/usr/include
           mkdir -p $GITHUB_WORKSPACE/termux-deps/extracted/usr/lib/pkgconfig
           echo "Using Termux deps at: $TERMUX_DEPS"
-          echo "CPPFLAGS=-I$TERMUX_DEPS/include $CPPFLAGS" >> $GITHUB_ENV
-          echo "LDFLAGS=-L$TERMUX_DEPS/lib $LDFLAGS" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=$TERMUX_DEPS/lib/pkgconfig $PKG_CONFIG_PATH" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$TERMUX_DEPS/include " >> $GITHUB_ENV
+          echo "LDFLAGS=-L$TERMUX_DEPS/lib " >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$TERMUX_DEPS/lib/pkgconfig " >> $GITHUB_ENV
       - name: Download official Python source tarball (from Secret)
         run: |
           set -euxo pipefail
