@@ -126,7 +126,7 @@ jobs:
           ls -R extracted/usr | head -n 50
       - name: Configure Termux dependency paths
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           TERMUX_DEPS="$GITHUB_WORKSPACE/termux-deps/extracted/usr"
           mkdir -p $GITHUB_WORKSPACE/termux-deps/extracted/usr
           mkdir -p $GITHUB_WORKSPACE/termux-deps/extracted/usr/lib
