@@ -62,8 +62,6 @@ export CFLAGS="-D__BIONIC_NO_PAGE_SIZE_MACRO"
 export LDFLAGS="-Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,-z,max-page-size=16384"
 
 export TERMUX_DEPS="$GITHUB_WORKSPACE/termux-deps/extracted/usr"
-export CFLAGS="-I$TERMUX_DEPS/include $CFLAGS"
-export LDFLAGS="-L$TERMUX_DEPS/lib $LDFLAGS"
 # Unlike Linux, Android does not implicitly use a dlopened library to resolve
 # relocations in subsequently-loaded libraries, even if RTLD_GLOBAL is used
 # (https://github.com/android/ndk/issues/1244). So any library that fails to
@@ -88,6 +86,8 @@ if [ -n "${PREFIX:-}" ]; then
     export PKG_CONFIG_LIBDIR="$abs_prefix/lib/pkgconfig"
 fi
 
+export CFLAGS="-I$TERMUX_DEPS/include $CFLAGS"
+export LDFLAGS="-L$TERMUX_DEPS/lib $LDFLAGS"
 # When compiling C++, some build systems will combine CFLAGS and CXXFLAGS, and some will
 # use CXXFLAGS alone.
 export CXXFLAGS="$CFLAGS"
