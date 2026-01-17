@@ -86,12 +86,13 @@ if [ -n "${PREFIX:-}" ]; then
     export PKG_CONFIG_LIBDIR="$abs_prefix/lib/pkgconfig"
 fi
 
-export CFLAGS="-I$TERMUX_DEPS/include $CFLAGS"
-export LDFLAGS="-L$TERMUX_DEPS/lib $LDFLAGS"
+export CFLAGS="-I$TERMUX_DEPS/include ${CFLAGS:-}"
+export LDFLAGS="-L$TERMUX_DEPS/lib ${LDFLAGS:-}"
 # When compiling C++, some build systems will combine CFLAGS and CXXFLAGS, and some will
 # use CXXFLAGS alone.
 export CXXFLAGS="$CFLAGS"
-export PKG_CONFIG_LIBDIR="$TERMUX_DEPS/lib/pkgconfig $PKG_CONFIG_LIBDIR"
+export PKG_CONFIG_LIBDIR="$TERMUX_DEPS/lib/pkgconfig ${PKG_CONFIG_LIBDIR:-}"
+
 
 # Use the same variable name as conda-build
 if [ "$(uname)" = "Darwin" ]; then
