@@ -153,17 +153,7 @@ jobs:
           echo "Downloading Python from $URL"
           curl -L "$URL" -o "$FILE"
           tar -xzf "$FILE"
-          mv "$FOLDER" "cpython-${VERSION}"
-          export PREFIX="/Users/runner/work/klo/klo/cpython-3.13.11/cross-build/aarch64-linux-android/prefix"
-          export TERMUX="/Users/runner/work/klo/klo/termux-deps/extracted/usr"
-          mkdir -p "$PREFIX/include"
-          mkdir -p "$PREFIX/lib"
-          mkdir -p "$PREFIX/lib/pkgconfig"
-          rsync -a "$TERMUX/include/" "$PREFIX/include/"
-          rsync -a "$TERMUX/lib/" "$PREFIX/lib/" \
-            --exclude="libpython*" \
-            --exclude="libmimalloc*"
-          rsync -a "$TERMUX/lib/pkgconfig/" "$PREFIX/lib/pkgconfig/"
+ 
           
 
       - name: Build CPython for Android
@@ -184,8 +174,8 @@ jobs:
             *) echo "Skip" ;;
           esac
           cd Android
-          #rm -rf android-env.sh
-          #wget https://raw.githubusercontent.com/aikwp/Ads/refs/heads/ttr/android-env.sh
+          rm -rf android-env.sh
+          wget https://raw.githubusercontent.com/aikwp/Ads/refs/heads/ttr/android-env.sh
           ./android.py ci --fast-ci aarch64-linux-android
           echo "✅ Build finished for version ${{ matrix.version }}"
           ls -lh ../cross-build/aarch64-linux-android || echo "⚠️ Build output not found"
